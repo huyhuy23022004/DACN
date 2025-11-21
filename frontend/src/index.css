@@ -1,0 +1,151 @@
+@import "tailwindcss";
+
+:root{
+  --bg: #ffffff;
+  --text: #0f172a; /* gray-900 */
+  --header-bg: #16a34a; /* green-600 */
+  --header-text: #ffffff;
+  --card-bg: #ffffff;
+  --muted: #6b7280; /* gray-500 */
+  --accent: #b91c1c; /* red-700 */
+  --accent-100: #fee2e2; /* red-100 */
+}
+
+[data-theme="dark"]{
+  --bg: #0b1220; /* dark background */
+  --text: #e6eef8; /* light text */
+  --header-bg: #064e3b; /* darker green */
+  --header-text: #e6eef8;
+  --card-bg: #0f1724;
+  --muted: #9ca3af;
+  --accent: #fca5a5; /* lighter red for contrast */
+  --accent-100: #2b0a0a; /* dark card tint for accent areas */
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+}
+
+/* header override: keep header color fixed and not change with theme */
+header {
+  /* Solid brand green used in light theme */
+  background-color: #16a34a !important;
+  color: #ffffff !important;
+}
+
+/* dropdown / cards */
+.bg-white {
+  background-color: var(--card-bg) !important;
+}
+
+.text-white {
+  color: var(--header-text) !important;
+}
+
+.text-gray-500 { color: var(--muted) !important; }
+
+/* Accent mappings to make admin red styles theme-aware */
+.bg-red-100 { background-color: var(--accent-100) !important; }
+.bg-red-600 { background-color: var(--accent) !important; }
+.text-red-600 { color: var(--accent) !important; }
+
+/* Slight neutral surface used by many components */
+.bg-gray-100 { background-color: rgba(148,163,184,0.06) !important; }
+
+
+/* Article content images: center and be responsive */
+.news-content img {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 100%;
+  height: auto;
+  float: none !important; /* override any float from editor HTML */
+}
+
+/* If editor wraps images in figure or p tags with align-center classes, ensure centering */
+.news-content figure,
+.news-content p img {
+  text-align: center;
+}
+
+/* Hide default slick arrows */
+.slick-prev:before, .slick-next:before {
+  display: none !important;
+}
+
+/* Floating animation for scroll-to-top button */
+@keyframes float {
+  0% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+  100% { transform: translateY(0); }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* Category card styling for dark theme: visible border and subtle hover scale */
+[data-theme="dark"] .category-card {
+  border: 1px solid rgba(14,165,165,0.12); /* subtle teal tint by default */
+  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+}
+
+[data-theme="dark"] .category-card:hover {
+  transform: scale(1.02);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.35);
+  border-color: var(--header-bg);
+}
+
+/* Improve text contrast inside category cards in dark mode */
+[data-theme="dark"] .category-card h3 {
+  color: var(--text) !important;
+}
+[data-theme="dark"] .category-card p {
+  color: var(--muted) !important;
+}
+[data-theme="dark"] .category-card a {
+  color: var(--accent) !important;
+}
+
+/* Homepage news card border color in dark mode: match header color for cohesion */
+[data-theme="dark"] .news-card {
+  border: 1px solid var(--header-bg);
+  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+}
+
+[data-theme="dark"] .news-card:hover {
+  transform: scale(1.02);
+  box-shadow: 0 10px 24px rgba(0,0,0,0.45);
+  border-color: rgba(99,102,241,0.12); /* subtle accent tint on hover */
+}
+
+/* Base (light mode) news card hover/interaction styles
+   These apply in the default/light theme. Dark-mode rules above
+   will override when `[data-theme="dark"]` is set. */
+.news-card {
+  border: 1px solid rgba(0,0,0,0.06);
+  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+}
+
+.news-card:hover {
+  transform: scale(1.02);
+  box-shadow: 0 10px 24px rgba(16,24,40,0.08);
+  border-color: rgba(16,24,40,0.12);
+}
+
+/* Base (light mode) category card hover/interaction styles
+   These apply in the default/light theme. The dark-mode rules above
+   override borders and hover shadows when `[data-theme="dark"]` is set. */
+.category-card {
+  border: 1px solid rgba(0,0,0,0.06);
+  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+}
+
+.category-card:hover {
+  transform: scale(1.02);
+  box-shadow: 0 10px 20px rgba(16,24,40,0.08);
+  border-color: rgba(16,24,40,0.12);
+}
+
