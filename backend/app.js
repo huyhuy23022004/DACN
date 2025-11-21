@@ -4,6 +4,7 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const dotenv = require('dotenv');
 const path = require('path');
+const fs = require('fs');
 
 // Tải biến môi trường
 dotenv.config();
@@ -48,7 +49,18 @@ app.use('/api/feedback', feedbackRoutes);
 
 // Route mặc định
 app.get('/', (req, res) => {
-  res.render('home');
+  // Nếu build frontend có file index.html thì phục vụ file tĩnh
+  const indexPath = path.join(__dirname, '../frontend/public/index.html');
+  try {
+    if (fs.existsSync(indexPath)) {
+      return res.sendFile(indexPath);
+    }
+  } catch (err) {
+    console.error('Lỗi khi kiểm tra index.html:', err);
+  }
+
+  // Nếu không có giao diện, trả về JSON đơn giản cho API
+  res.json({ message: 'API is running' });
 });
 
 // Error handler for payload too large and other errors
