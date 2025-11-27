@@ -39,11 +39,20 @@ exports.createCategory = async (req, res) => {
       .trim()
       .replace(/\s+/g, '-') // Thay khoảng trắng bằng dấu gạch ngang
       .replace(/-+/g, '-'); // Thay nhiều dấu gạch ngang bằng một
+    // Kiểm tra tồn tại trước khi tạo (theo name hoặc slug)
+    const existing = await Category.findOne({ $or: [{ name }, { slug }] });
+    if (existing) {
+      return res.status(400).json({ error: 'Danh mục đã tồn tại' });
+    }
 
     const category = new Category({ name, description, slug, images: images || [] });
     await category.save();
     res.status(201).json(category);
   } catch (error) {
+    // Nếu có race condition dẫn tới duplicate key, trả message thân thiện
+    if (error && error.code === 11000) {
+      return res.status(400).json({ error: 'Danh mục đã tồn tại' });
+    }
     res.status(400).json({ error: error.message });
   }
 };
@@ -95,6 +104,23 @@ exports.deleteCategory = async (req, res) => {
     // Kiểm tra xem danh mục có đang được sử dụng bởi tin tức nào không
     const News = require('../models/News');
     const newsCount = await News.countDocuments({ category: req.params.id });
+      const cloudinary = require('../config/cloudinary');
+      // attempt to delete linked cloudinary images
+      if (category.images && category.images.length > 0 && cloudinary.config().api_key) {
+        for (const img of category.images) {
+          try {
+            const parts = img.split('/upload/');
+            if (!parts[1]) continue;
+            let rest = parts[1];
+            rest = rest.replace(/^v\d+\//, '');
+            const dotIndex = rest.lastIndexOf('.');
+            const publicId = dotIndex === -1 ? rest : rest.substring(0, dotIndex);
+            if (publicId) await cloudinary.uploader.destroy(publicId);
+          } catch (e) {
+            console.warn('Error deleting Cloudinary image:', e.message || e);
+          }
+        }
+      }
     if (newsCount > 0) {
       return res.status(400).json({ error: 'Không thể xóa danh mục đang được sử dụng bởi tin tức' });
     }
@@ -102,6 +128,7 @@ exports.deleteCategory = async (req, res) => {
     await Category.findByIdAndDelete(req.params.id);
     res.json({ message: 'Xóa danh mục thành công' });
   } catch (error) {
+    console.error('Error deleting category:', error);
     res.status(500).json({ error: error.message });
   }
 };

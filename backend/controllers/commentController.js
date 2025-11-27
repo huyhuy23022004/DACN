@@ -30,7 +30,8 @@ exports.createComment = async (req, res) => {
       if (!parentComment) return res.status(404).json({ error: 'Bình luận cha không tìm thấy' });
     }
 
-    const comment = new Comment({ news: newsId, author: req.user.id, content, parentId: parentId || null });
+  // Tạo comment và mặc định set approved = true (đăng trực tiếp, không cần duyệt)
+  const comment = new Comment({ news: newsId, author: req.user.id, content, parentId: parentId || null, approved: true });
     await comment.save();
     await comment.populate('author');
     res.status(201).json(comment);

@@ -5,36 +5,18 @@ const Sidebar = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // menu items include an optional in-page targetId for the editor dashboard
+  // menu items now navigate to dedicated editor pages
   const menu = [
-    { name: "Dashboard", icon: <LayoutDashboard size={20} />, path: "/editor", targetId: "top" },
-  { name: "Tin tức", icon: <Newspaper size={20} />, path: "/editor", targetId: "edit-news-title" },
-    { name: "Danh mục", icon: <Home size={20} />, path: "/editor", targetId: "categories-section" },
-    { name: "Bình luận", icon: <MessageSquare size={20} />, path: "/editor", targetId: "comments-section" },
+    { name: "Dashboard", icon: <LayoutDashboard size={20} />, path: "/editor" },
+    { name: "Tin tức", icon: <Newspaper size={20} />, path: "/editor/news" },
+    { name: "Danh mục", icon: <Home size={20} />, path: "/editor/categories" },
+    { name: "Bình luận", icon: <MessageSquare size={20} />, path: "/editor/comments" },
   ];
 
   const handleClick = (e, item) => {
     e.preventDefault();
-    const targetId = item.targetId;
-
-    if (location.pathname !== '/editor') {
-      // navigate to /editor with hash so the router loads the dashboard first
-      navigate(`/editor#${targetId}`);
-      return;
-    }
-
-    if (!targetId || targetId === 'top') {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      return;
-    }
-
-    const el = document.getElementById(targetId);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } else {
-      // fallback: navigate to /editor with hash
-      navigate(`/editor#${targetId}`);
-    }
+    // Navigate to the explicit page for the editor tool
+    navigate(item.path);
   };
 
   return (
@@ -44,9 +26,7 @@ const Sidebar = () => {
       <nav className="space-y-2">
         {menu.map((item, index) => {
           // Active only when the item's explicit route matches OR when on /editor and the hash matches the targetId
-          const active = item.targetId
-            ? (location.pathname === '/editor' && location.hash === `#${item.targetId}`)
-            : (location.pathname === item.path);
+          const active = location.pathname === item.path || (item.path !== '/editor' && location.pathname.startsWith(item.path));
 
           const anchorClass = `flex items-center gap-3 p-3 rounded-xl transition-all group w-full ${active ? 'bg-red-600 text-white shadow-md' : 'hover:bg-red-100 text-gray-700'}`;
           const iconWrapperClass = active
@@ -56,7 +36,7 @@ const Sidebar = () => {
 
           return (
             <a
-              href={item.targetId ? `#${item.targetId}` : item.path}
+              href={item.path}
               key={index}
               onClick={(e) => handleClick(e, item)}
               className={anchorClass}

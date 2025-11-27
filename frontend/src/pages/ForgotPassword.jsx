@@ -10,7 +10,7 @@ const ForgotPassword = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const res = await api.post('/users/forgot-password', { email });
+      await api.post('/users/forgot-password', { email });
       setMessage('Email reset mật khẩu đã được gửi. Vui lòng kiểm tra hộp thư của bạn.');
       setError('');
     } catch (error) {

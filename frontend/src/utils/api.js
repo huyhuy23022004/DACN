@@ -13,7 +13,10 @@ export const api = {
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
     return fetch(`${API_BASE}${endpoint}`, { headers }).then(async res => {
       if (res.status === 401) {
-        handleLogout();
+        // Only force logout when a token was provided - avoid logging out on unauthenticated endpoints like /users/login
+        if (token) {
+          handleLogout();
+        }
         throw new Error('Phiên đăng nhập đã hết hạn');
       }
       if (!res.ok) {
@@ -39,7 +42,10 @@ export const api = {
       body: JSON.stringify(data)
     }).then(async res => {
       if (res.status === 401) {
-        handleLogout();
+        // Only force logout when a token was provided - avoid logging out on unauthenticated endpoints like /users/login
+        if (token) {
+          handleLogout();
+        }
         throw new Error('Phiên đăng nhập đã hết hạn');
       }
       if (!res.ok) {
@@ -69,7 +75,10 @@ export const api = {
       body: JSON.stringify(data)
     }).then(res => {
       if (res.status === 401) {
-        handleLogout();
+        // Only force logout when a token was provided
+        if (token) {
+          handleLogout();
+        }
         throw new Error('Phiên đăng nhập đã hết hạn');
       }
       if (!res.ok) {
@@ -90,7 +99,10 @@ export const api = {
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
     return fetch(`${API_BASE}${endpoint}`, { method: 'DELETE', headers }).then(res => {
       if (res.status === 401) {
-        handleLogout();
+        // Only force logout when a token was provided
+        if (token) {
+          handleLogout();
+        }
         throw new Error('Phiên đăng nhập đã hết hạn');
       }
       if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
@@ -115,6 +127,9 @@ export const api = {
   },
   deleteNotification: (id, token) => {
     return api.delete(`/admin/notifications/${id}`, token);
+  },
+  updateNotification: (id, data, token) => {
+    return api.put(`/admin/notifications/${id}`, data, token);
   },
   // User notification functions
   getUserNotifications: (token) => {

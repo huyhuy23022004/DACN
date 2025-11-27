@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const transporter = require('../config/email');
+const { sendEmail } = require('../utils/emailHelper');
 const Notification = require('../models/Notification');
 
 // Đăng ký người dùng
@@ -295,6 +296,30 @@ exports.changePassword = async (req, res) => {
     // Cập nhật mật khẩu mới
     user.password = newPassword;
     await user.save();
+
+    // Gửi email thông báo đổi mật khẩu thành công
+    await sendEmail(
+      user.email,
+      'Mật khẩu đã được thay đổi thành công',
+      `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+          <div style="text-align: center; margin-bottom: 20px;">
+            <img src="http://localhost:5000/assets/HUNRE_Logo.png" alt="HCNRE Logo" style="max-width: 150px; height: auto;">
+          </div>
+          <h2 style="color: #333; text-align: center;">Mật khẩu đã được thay đổi</h2>
+          <p style="color: #555; font-size: 16px; line-height: 1.5;">
+            Mật khẩu của tài khoản <strong>${user.username}</strong> đã được thay đổi thành công.
+          </p>
+          <p style="color: #555; font-size: 16px; line-height: 1.5;">
+            Nếu bạn không thực hiện thay đổi này, vui lòng liên hệ với chúng tôi ngay lập tức để bảo vệ tài khoản của bạn.
+          </p>
+          <p style="color: #777; font-size: 14px; text-align: center;">
+            Trân trọng,<br>
+            Đội ngũ HCMUNRE(Admin)
+          </p>
+        </div>
+      `
+    );
 
     res.json({ message: 'Đổi mật khẩu thành công' });
   } catch (error) {

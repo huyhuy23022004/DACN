@@ -3,6 +3,7 @@ const News = require('../models/News');
 const Comment = require('../models/Comment');
 const Category = require('../models/Category');
 const Notification = require('../models/Notification');
+const cloudinary = require('../config/cloudinary');
 
 // Lấy thống kê dashboard
 exports.getStats = async (req, res) => {
@@ -243,6 +244,8 @@ exports.getAllNotifications = async (req, res) => {
       notifications = await Notification.find()
         .populate('recipient', 'username email')
         .populate('createdBy', 'username role')
+        .populate('editedBy', 'username role')
+        .populate({ path: 'editHistory.editedBy', select: 'username role' })
         .sort({ createdAt: -1 })
         .skip((page - 1) * limit)
         .limit(limit);
@@ -269,12 +272,127 @@ exports.getAllNotifications = async (req, res) => {
 };
 
 // Xóa thông báo
+// Sửa thông báo
+exports.updateNotification = async (req, res) => {
+  try {
+    const { title, message, type } = req.body;
+
+    // Validate type nếu có
+    const allowedTypes = ['info', 'warning', 'success', 'error'];
+    if (type && !allowedTypes.includes(type)) {
+      return res.status(400).json({ error: 'Loại thông báo không hợp lệ' });
+    }
+
+    const notification = await Notification.findById(req.params.id);
+    if (!notification) return res.status(404).json({ error: 'Thông báo không tìm thấy' });
+    // Trước khi cập nhật, push snapshot current state vào editHistory
+    const snapshot = {
+      title: notification.title,
+      message: notification.message,
+      type: notification.type,
+      editedAt: new Date(),
+      editedBy: req.user.id
+    };
+    // Add snapshot to history
+    if (!notification.editHistory) notification.editHistory = [];
+    notification.editHistory.push(snapshot);
+
+    // Update các field cho phép
+    if (title !== undefined) notification.title = title;
+    if (message !== undefined) notification.message = message;
+    if (type !== undefined) notification.type = type;
+
+    // Set edited meta
+    notification.editedAt = new Date();
+    notification.editedBy = req.user.id;
+
+    await notification.save();
+  await notification.populate('recipient createdBy editedBy');
+    res.json(notification);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Xóa thông báo
 exports.deleteNotification = async (req, res) => {
   try {
     const notification = await Notification.findByIdAndDelete(req.params.id);
     if (!notification) return res.status(404).json({ error: 'Thông báo không tìm thấy' });
     res.json({ message: 'Thông báo đã được xóa' });
   } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Xóa người dùng (admin only) - xóa ảnh liên quan, tin, comment, notifications, likes
+exports.deleteUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ error: 'Người dùng không tìm thấy' });
+
+    // Không cho xóa admin
+    if (user.role === 'admin') return res.status(403).json({ error: 'Không thể xóa admin' });
+
+    // Không cho admin xóa chính họ
+    if (req.user.id === user._id.toString()) return res.status(403).json({ error: 'Bạn không thể xóa chính mình' });
+
+    // Try delete avatar if it's a cloudinary resource
+    try {
+      if (user.avatar && cloudinary.config().api_key) {
+        const parts = user.avatar.split('/upload/');
+        if (parts[1]) {
+          let rest = parts[1];
+          rest = rest.replace(/^v\d+\//, '');
+          const dotIndex = rest.lastIndexOf('.');
+          const publicId = dotIndex === -1 ? rest : rest.substring(0, dotIndex);
+          if (publicId) await cloudinary.uploader.destroy(publicId);
+        }
+      }
+    } catch (e) {
+      console.warn('Error deleting user avatar from Cloudinary:', e.message || e);
+    }
+
+    // Delete all news by this user and remove cloudinary images if present
+    const userNews = await News.find({ author: user._id });
+    for (const n of userNews) {
+      if (n.images && n.images.length > 0 && cloudinary.config().api_key) {
+        for (const img of n.images) {
+          try {
+            const parts = img.split('/upload/');
+            if (!parts[1]) continue;
+            let rest = parts[1];
+            rest = rest.replace(/^v\d+\//, '');
+            const dotIndex = rest.lastIndexOf('.');
+            const publicId = dotIndex === -1 ? rest : rest.substring(0, dotIndex);
+            if (publicId) await cloudinary.uploader.destroy(publicId);
+          } catch (e) {
+            console.warn('Error deleting Cloudinary image for user news:', e.message || e);
+          }
+        }
+      }
+    }
+    await News.deleteMany({ author: user._id });
+
+    // Remove likes (pull user id from likes array in News)
+    try {
+      await News.updateMany({}, { $pull: { likes: user._id } });
+    } catch (e) {
+      console.warn('Error removing likes from News:', e.message || e);
+    }
+
+    // Delete comments
+    await Comment.deleteMany({ author: user._id });
+
+    // Delete notifications where user is recipient or createdBy
+    await Notification.deleteMany({ $or: [{ recipient: user._id }, { createdBy: user._id }] });
+
+    // Finally delete user
+    await User.findByIdAndDelete(user._id);
+
+    res.json({ message: 'Người dùng đã được xóa' });
+  } catch (error) {
+    console.error('Error deleting user:', error);
     res.status(500).json({ error: error.message });
   }
 };

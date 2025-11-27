@@ -305,4 +305,71 @@ describe('Admin APIs', () => { // Mô tả nhóm test cho Admin APIs
       expect(res.status).toBe(403);
     });
   });
+
+  // Test cập nhật thông báo
+  describe('PUT /api/admin/notifications/:id', () => {
+    it('nên cập nhật thông báo nếu là admin', async () => {
+      // tạo notification qua API
+      const createRes = await request(app)
+        .post('/api/admin/notifications')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          title: 'To be updated',
+          message: 'Before update',
+          type: 'info',
+          recipientId: userId
+        });
+
+      expect(createRes.status).toBe(201);
+      const notifId = createRes.body._id;
+
+      const res = await request(app)
+        .put(`/api/admin/notifications/${notifId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ title: 'Updated title', message: 'Updated message', type: 'warning' });
+
+  expect(res.status).toBe(200);
+  expect(res.body).toHaveProperty('title', 'Updated title');
+  expect(res.body).toHaveProperty('message', 'Updated message');
+  expect(res.body).toHaveProperty('type', 'warning');
+  expect(res.body).toHaveProperty('editedAt');
+  expect(res.body).toHaveProperty('editedBy');
+  expect(res.body).toHaveProperty('editHistory');
+  expect(Array.isArray(res.body.editHistory)).toBe(true);
+  expect(res.body.editHistory.length).toBeGreaterThanOrEqual(1);
+  // The history snapshot should contain the previous message
+  expect(res.body.editHistory[0]).toHaveProperty('message', 'Before update');
+    });
+
+    it('nên lỗi nếu không phải admin', async () => {
+      // tạo notification qua API bởi admin
+      const createRes = await request(app)
+        .post('/api/admin/notifications')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          title: 'To be updated by user',
+          message: 'User should not update',
+          type: 'info',
+          recipientId: userId
+        });
+      expect(createRes.status).toBe(201);
+      const notifId = createRes.body._id;
+
+      const res = await request(app)
+        .put(`/api/admin/notifications/${notifId}`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({ title: 'Should not update' });
+
+      expect(res.status).toBe(403);
+    });
+
+    it('nên lỗi nếu notification không tồn tại', async () => {
+      const res = await request(app)
+        .put('/api/admin/notifications/507f1f77bcf86cd799439011')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ title: 'Does not matter' });
+
+      expect(res.status).toBe(404);
+    });
+  });
 });

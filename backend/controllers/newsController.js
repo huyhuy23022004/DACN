@@ -3,6 +3,11 @@ const multer = require('multer');
 const path = require('path');
 const { getMapUrl } = require('../utils/mapHelper');
 
+// Escape user input for safe regex usage
+function escapeRegex(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 // Cấu hình multer cho upload ảnh
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -21,9 +26,12 @@ exports.getSuggestions = async (req, res) => {
     console.log('Truy vấn:', query);
     if (!query) return res.json({ suggestions: [] });
 
+    const escaped = escapeRegex(query);
+    const regex = { $regex: escaped, $options: 'i' };
+
     const suggestions = await News.find({
       published: true,
-      title: { $regex: query, $options: 'i' }
+      $or: [{ title: regex }, { content: regex }]
     })
       .select('title')
       .limit(10)
@@ -51,7 +59,10 @@ exports.getAllNews = async (req, res) => {
 
     let query = { published: true };
     if (search) {
-      query.title = { $regex: search, $options: 'i' };
+      // Use escaped regex to avoid injection and search in title OR content
+      const escaped = escapeRegex(search);
+      const regex = { $regex: escaped, $options: 'i' };
+      query.$or = [{ title: regex }, { content: regex }];
     }
     if (category) {
       query.category = category;
@@ -167,6 +178,23 @@ exports.updateNews = async (req, res) => {
 };
 
 // Xóa tin tức
+const cloudinary = require('../config/cloudinary');
+
+function parseCloudinaryPublicId(url) {
+  try {
+    const parts = url.split('/upload/');
+    if (!parts[1]) return null;
+    let rest = parts[1];
+    // remove version prefix v12345/
+    rest = rest.replace(/^v\d+\//, '');
+    const dotIndex = rest.lastIndexOf('.');
+    if (dotIndex === -1) return rest;
+    return rest.substring(0, dotIndex);
+  } catch (e) {
+    return null;
+  }
+}
+
 exports.deleteNews = async (req, res) => {
   try {
     const news = await News.findById(req.params.id);
@@ -179,6 +207,18 @@ exports.deleteNews = async (req, res) => {
       return res.status(403).json({ error: 'Không có quyền xóa tin tức này' });
     }
 
+    // attempt to delete linked cloudinary images
+    if (news.images && news.images.length > 0 && cloudinary.config().api_key) {
+      for (const img of news.images) {
+        try {
+          // img may be a URL string; extract publicId
+          const publicId = parseCloudinaryPublicId(img);
+          if (publicId) await cloudinary.uploader.destroy(publicId);
+        } catch (e) {
+          console.warn('Error deleting Cloudinary image:', e.message || e);
+        }
+      }
+    }
     await News.findByIdAndDelete(req.params.id);
     res.json({ message: 'Xóa tin tức thành công' });
   } catch (error) {

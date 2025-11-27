@@ -25,6 +25,7 @@ const AdminDashboard = () => {
   const [editingCategory, setEditingCategory] = useState(null);
   const [editingNews, setEditingNews] = useState(null);
   const [newCategory, setNewCategory] = useState({ name: '', description: '', images: [] });
+  const [categoryError, setCategoryError] = useState('');
   const [newNews, setNewNews] = useState({ title: '', summary: '', content: '', category: '', tags: '', location: { lat: '', lng: '', address: '' }, videoUrl: '' });
   const [images, setImages] = useState([]);
   const [categoryImages, setCategoryImages] = useState([]);
@@ -32,6 +33,8 @@ const AdminDashboard = () => {
   const [notifications, setNotifications] = useState([]);
   const [notificationForm, setNotificationForm] = useState({ title: '', message: '', type: 'info', recipientId: '' });
   const [showNotificationForm, setShowNotificationForm] = useState(false);
+  const [editNotificationModal, setEditNotificationModal] = useState({ show: false, notification: null });
+  const [editNotificationForm, setEditNotificationForm] = useState({ title: '', message: '', type: 'info' });
   // Use plain text input for content (no rich text editor)
   const token = localStorage.getItem('token');
 
@@ -310,11 +313,14 @@ const AdminDashboard = () => {
       await api.post('/categories', newCategory, token);
       setNewCategory({ name: '', description: '', images: [] });
       setCategoryImages([]);
+      setCategoryError('');
       alert('Danh mục đã được tạo!');
       const data = await api.get('/categories');
       setCategories(data);
     } catch (err) {
-      alert('Lỗi tạo danh mục: ' + err.message);
+      // show friendly error message near form
+      const message = (err && err.data && err.data.error) ? err.data.error : err.message || 'Lỗi tạo danh mục';
+      setCategoryError(message);
     }
   };
 
@@ -420,6 +426,29 @@ const AdminDashboard = () => {
     }
   };
 
+  const openEditNotification = (notification) => {
+    setEditNotificationModal({ show: true, notification });
+    setEditNotificationForm({ title: notification.title || '', message: notification.message || '', type: notification.type || 'info' });
+  };
+
+  const closeEditNotification = () => {
+    setEditNotificationModal({ show: false, notification: null });
+    setEditNotificationForm({ title: '', message: '', type: 'info' });
+  };
+
+  const submitEditNotification = async (e) => {
+    e.preventDefault();
+    try {
+      const updated = await api.updateNotification(editNotificationModal.notification._id, editNotificationForm, token);
+      // Replace notification in state
+      setNotifications(notifications.map(n => n._id === updated._id ? updated : n));
+      alert('Thông báo đã được cập nhật!');
+      closeEditNotification();
+    } catch (error) {
+      alert('Lỗi khi cập nhật thông báo: ' + (error.message || error));
+    }
+  };
+
   return (
     <div className="flex">
   <AdminSidebar />
@@ -478,6 +507,9 @@ const AdminDashboard = () => {
             <button type="button" onClick={() => { setEditingCategory(null); setNewCategory({ name: '', description: '', images: [] }); setCategoryImages([]); }} className="bg-gray-600 text-white p-3 rounded text-lg">
               Hủy
             </button>
+          )}
+          {categoryError && (
+            <p className="text-red-600 mt-3" role="alert">{categoryError}</p>
           )}
         </form>
       </div>
@@ -794,14 +826,25 @@ const AdminDashboard = () => {
                       <span>Người nhận: {notification.recipient?.username || 'Tất cả'}</span>
                       <span className="ml-4">Loại: {notification.type}</span>
                       <span className="ml-4">Ngày: {new Date(notification.createdAt).toLocaleString()}</span>
+                      {notification.editedAt && (
+                        <span className="ml-4">Sửa bởi: {notification.editedBy?.username || 'N/A'} lúc {new Date(notification.editedAt).toLocaleString()}</span>
+                      )}
                     </div>
                   </div>
-                  <button
-                    onClick={() => deleteNotification(notification._id)}
-                    className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 ml-4"
-                  >
-                    Xóa
-                  </button>
+                  <div className="flex gap-2 items-start">
+                    <button
+                      onClick={() => openEditNotification(notification)}
+                      className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
+                    >
+                      Sửa
+                    </button>
+                    <button
+                      onClick={() => deleteNotification(notification._id)}
+                      className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 ml-4"
+                    >
+                      Xóa
+                    </button>
+                  </div>
                 </div>
               </div>
             ))
@@ -836,6 +879,46 @@ const AdminDashboard = () => {
               <button onClick={banUser} className="bg-red-600 text-white px-4 py-2 rounded">Ban</button>
               <button onClick={closeBanModal} className="bg-gray-600 text-white px-4 py-2 rounded">Hủy</button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* Edit Notification Modal */}
+      {editNotificationModal.show && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded shadow-lg w-96">
+            <h3 className="text-lg font-bold mb-4">Sửa Thông Báo</h3>
+            <form onSubmit={submitEditNotification}>
+              <input
+                type="text"
+                placeholder="Tiêu đề thông báo"
+                value={editNotificationForm.title}
+                onChange={(e) => setEditNotificationForm({ ...editNotificationForm, title: e.target.value })}
+                className="w-full p-2 border mb-2"
+                required
+              />
+              <textarea
+                placeholder="Nội dung thông báo"
+                value={editNotificationForm.message}
+                onChange={(e) => setEditNotificationForm({ ...editNotificationForm, message: e.target.value })}
+                className="w-full p-2 border mb-2"
+                rows="3"
+                required
+              />
+              <select
+                value={editNotificationForm.type}
+                onChange={(e) => setEditNotificationForm({ ...editNotificationForm, type: e.target.value })}
+                className="w-full p-2 border mb-2"
+              >
+                <option value="info">Thông tin</option>
+                <option value="warning">Cảnh báo</option>
+                <option value="success">Thành công</option>
+                <option value="error">Lỗi</option>
+              </select>
+              <div className="flex gap-2">
+                <button type="submit" className="bg-green-600 text-white px-4 py-2 rounded">Cập Nhật</button>
+                <button type="button" onClick={closeEditNotification} className="bg-gray-600 text-white px-4 py-2 rounded">Hủy</button>
+              </div>
+            </form>
           </div>
         </div>
       )}

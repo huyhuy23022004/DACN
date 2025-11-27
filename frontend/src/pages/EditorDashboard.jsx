@@ -24,6 +24,7 @@ const EditorDashboard = () => {
   const [editingCategory, setEditingCategory] = useState(null);
   const [newCategory, setNewCategory] = useState({ name: '', description: '' });
   const [categoryImages, setCategoryImages] = useState([]);
+  const [categoryError, setCategoryError] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   // Use plain text input for content (no rich text editor)
   const token = localStorage.getItem('token');
@@ -220,11 +221,13 @@ const EditorDashboard = () => {
       await api.post('/categories', newCategory, token);
       setNewCategory({ name: '', description: '', images: [] });
       setCategoryImages([]);
+      setCategoryError('');
       alert('Danh mục đã được tạo!');
       const data = await api.get('/categories', token);
       setCategories(data);
     } catch (err) {
-      alert('Lỗi tạo danh mục: ' + err.message);
+      const message = (err && err.data && err.data.error) ? err.data.error : err.message || 'Lỗi tạo danh mục';
+      setCategoryError(message);
     }
   };
 
@@ -310,6 +313,9 @@ const EditorDashboard = () => {
                 <button type="button" onClick={() => { setEditingCategory(null); setNewCategory({ name: '', description: '', images: [] }); setCategoryImages([]); }} className="bg-gray-600 text-white p-3 rounded text-lg">
                   Hủy
                 </button>
+              )}
+              {categoryError && (
+                <p className="text-red-600 mt-3" role="alert">{categoryError}</p>
               )}
             </form>
           </div>
